@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2010 Google Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  Original slides: Marcin Wichary (mwichary@google.com)
+  Modifications: Ernest Delgado (ernestd@google.com)
+                 Alex Russell (slightlyoff@chromium.org)
+
+  landslide modifications: Adam Zapletal (adamzap@gmail.com)
+                           Nicolas Perriault (nperriault@gmail.com)
+-->
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>scalaz-stream</title>
+    <!-- Styles -->
+    
+    <link rel="stylesheet" media="print" href="file:///usr/local/lib/python2.7/dist-packages/landslide/themes/default/css/print.css">
+    <link rel="stylesheet" media="screen, projection" href="file:///usr/local/lib/python2.7/dist-packages/landslide/themes/default/css/screen.css">
+    
+    
+    <!-- /Styles -->
+    <!-- Javascripts -->
+    
+    <script type="text/javascript" src="file:///usr/local/lib/python2.7/dist-packages/landslide/themes/default/js/slides.js"></script>
+    
+    
+    <!-- /Javascripts -->
+</head>
+<body>
+  <div id="blank"></div>
+  <div class="presentation">
+    <div id="current_presenter_notes">
+      <div id="presenter_note"></div>
+    </div>
+    <div class="slides">
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>scalaz-stream</h1></header>
+            
+            
+            <section><h2>Goals for tonight:</h2>
+<ul>
+<li>Compare evolution of stream processing techniques<ul>
+<li>Java in Scala</li>
+<li>Iterators</li>
+<li>Play Iteratees</li>
+<li>scalaz-stream</li>
+</ul>
+</li>
+<li>Assert that the <code>z</code> is here to help, not confuse.</li>
+</ul>
+<h3>IndyScala, December 8, 2014 -- Ross A. Baker, CrowdStrike</h3></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              1/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>This is part 2 of 3.</h1></header>
+            
+            
+            <section><ol>
+<li>scalaz.concurrent.Task (November, 2014)</li>
+<li><strong>scalaz-stream</strong> (December, 2014)</li>
+<li>http4s (???)</li>
+</ol>
+<p>Fear not, I'll explain <code>Task</code> again when it comes up.</p></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              2/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Not in scope tonight:</h1></header>
+            
+            
+            <section><ul>
+<li>Make you an expert in scalaz-stream</li>
+<li>Make you intermediate in scalaz-stream</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              3/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Requirements</h1></header>
+            
+            
+            <section><ol>
+<li>Parse a CSV file.</li>
+<li>Discard the header and any malformed lines.</li>
+<li>Geocode the IP from the CSV.</li>
+<li>Filter for US.</li>
+<li>Emit 20 records.</li>
+<li>Run in constant space.</li>
+</ol></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              4/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>Attempt #1: Java in Scala</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno"> 1</span> <span class="k">val</span> <span class="n">in</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">BufferedReader</span><span class="o">(</span><span class="k">new</span> <span class="nc">FileReader</span><span class="o">(</span><span class="n">inF</span><span class="o">))</span>
+<span class="lineno"> 2</span> <span class="k">try</span> <span class="o">{</span>
+<span class="lineno"> 3</span>   <span class="k">val</span> <span class="n">out</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">PrintWriter</span><span class="o">(</span><span class="k">new</span> <span class="nc">FileWriter</span><span class="o">(</span><span class="n">outF</span><span class="o">),</span> <span class="kc">true</span><span class="o">)</span>
+<span class="lineno"> 4</span>   <span class="k">try</span> <span class="o">{</span>
+<span class="lineno"> 5</span>     <span class="k">var</span> <span class="n">line</span><span class="k">:</span> <span class="kt">String</span> <span class="o">=</span> <span class="n">in</span><span class="o">.</span><span class="n">readLine</span><span class="o">()</span> <span class="c1">// Skip the header</span>
+<span class="lineno"> 6</span>     <span class="k">var</span> <span class="n">i</span> <span class="k">=</span> <span class="mi">20</span>
+<span class="lineno"> 7</span>     <span class="k">while</span> <span class="o">({</span> <span class="n">line</span> <span class="k">=</span> <span class="n">in</span><span class="o">.</span><span class="n">readLine</span><span class="o">();</span> <span class="n">line</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">line</span><span class="o">.</span><span class="n">contains</span><span class="o">(</span><span class="sc">&#39;&quot;&#39;</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">})</span> <span class="o">{</span>
+<span class="lineno"> 8</span>       <span class="k">val</span> <span class="n">mockData</span> <span class="k">=</span> <span class="nc">MockData</span><span class="o">.</span><span class="n">parse</span><span class="o">(</span><span class="n">line</span><span class="o">)</span>
+<span class="lineno"> 9</span>       <span class="k">val</span> <span class="n">country</span> <span class="k">=</span> <span class="nc">Await</span><span class="o">.</span><span class="n">result</span><span class="o">(</span><span class="nc">Geocoder</span><span class="o">(</span><span class="n">mockData</span><span class="o">.</span><span class="n">ipAddress</span><span class="o">),</span> <span class="mf">5.</span><span class="n">seconds</span><span class="o">)</span>
+<span class="lineno">10</span>       <span class="k">if</span> <span class="o">(</span><span class="n">country</span> <span class="o">==</span> <span class="nc">Country</span><span class="o">(</span><span class="s">&quot;United States&quot;</span><span class="o">))</span> <span class="o">{</span>
+<span class="lineno">11</span>         <span class="n">out</span><span class="o">.</span><span class="n">println</span><span class="o">(</span><span class="n">mockData</span><span class="o">.</span><span class="n">email</span><span class="o">)</span>
+<span class="lineno">12</span>         <span class="n">i</span> <span class="k">=</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span>
+<span class="lineno">13</span>       <span class="o">}</span>
+<span class="lineno">14</span>     <span class="o">}</span>
+<span class="lineno">15</span>   <span class="o">}</span> <span class="k">finally</span> <span class="n">out</span><span class="o">.</span><span class="n">close</span><span class="o">()</span>
+<span class="lineno">16</span> <span class="o">}</span> <span class="k">finally</span> <span class="n">in</span><span class="o">.</span><span class="n">close</span><span class="o">()</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              5/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Documenting the atrocities</h1></header>
+            
+            
+            <section><ul>
+<li>Manual, verbose resource management of input and output</li>
+<li><code>null</code>.  Boo, hiss.</li>
+<li>Poorly factored<ul>
+<li>Termination condition entwined with mutable state.</li>
+<li>Filtering pushes surviving lines into deeper nesting.</li>
+<li>Repeats <code>readLine()</code> call to discard header.</li>
+</ul>
+</li>
+<li>Blocks threads<ul>
+<li>On geocoder</li>
+<li>On input</li>
+<li>On output</li>
+</ul>
+</li>
+<li>Arbitrary timeout on geocoder.</li>
+<li>Not parallel</li>
+<li>Flow of code hard to trace back to requirements.</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              6/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>Attempt #2: More conventional Scala</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno"> 1</span> <span class="n">using</span><span class="o">(</span><span class="k">new</span> <span class="nc">FileInputStream</span><span class="o">(</span><span class="s">&quot;mockaroo.csv&quot;</span><span class="o">))</span> <span class="o">{</span> <span class="n">in</span> <span class="k">=&gt;</span>
+<span class="lineno"> 2</span>   <span class="n">using</span><span class="o">(</span><span class="k">new</span> <span class="nc">PrintWriter</span><span class="o">(</span><span class="k">new</span> <span class="nc">FileOutputStream</span><span class="o">(</span><span class="s">&quot;emails.txt&quot;</span><span class="o">),</span> <span class="kc">true</span><span class="o">))</span> <span class="o">{</span> <span class="n">out</span> <span class="k">=&gt;</span>
+<span class="lineno"> 3</span>     <span class="nc">Source</span><span class="o">.</span><span class="n">fromInputStream</span><span class="o">(</span><span class="n">in</span><span class="o">).</span><span class="n">getLines</span>
+<span class="lineno"> 4</span>       <span class="o">.</span><span class="n">drop</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+<span class="lineno"> 5</span>       <span class="o">.</span><span class="n">filterNot</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">contains</span><span class="o">(</span><span class="sc">&#39;&quot;&#39;</span><span class="o">))</span>
+<span class="lineno"> 6</span>       <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="nc">MockData</span><span class="o">.</span><span class="n">parse</span><span class="o">)</span>
+<span class="lineno"> 7</span>       <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="n">datum</span> <span class="k">=&gt;</span> <span class="n">datum</span> <span class="o">-&gt;</span> <span class="nc">Await</span><span class="o">.</span><span class="n">result</span><span class="o">(</span><span class="nc">Geocoder</span><span class="o">(</span><span class="n">datum</span><span class="o">.</span><span class="n">ipAddress</span><span class="o">),</span> <span class="mf">5.</span><span class="n">seconds</span><span class="o">))</span>
+<span class="lineno"> 8</span>       <span class="o">.</span><span class="n">collect</span> <span class="o">{</span> <span class="k">case</span> <span class="o">(</span><span class="n">datum</span><span class="o">,</span> <span class="nc">Country</span><span class="o">(</span><span class="n">c</span><span class="o">))</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s">&quot;United States&quot;</span> <span class="k">=&gt;</span> <span class="n">datum</span><span class="o">.</span><span class="n">email</span> <span class="o">}</span>
+<span class="lineno"> 9</span>       <span class="o">.</span><span class="n">take</span><span class="o">(</span><span class="mi">20</span><span class="o">)</span>
+<span class="lineno">10</span>       <span class="o">.</span><span class="n">foreach</span><span class="o">(</span><span class="n">out</span><span class="o">.</span><span class="n">println</span><span class="o">)</span>
+<span class="lineno">11</span>   <span class="o">}</span>
+<span class="lineno">12</span> <span class="o">}</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              7/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Reassessing the atrocities</h1></header>
+            
+            
+            <section><ul>
+<li>Manual, <del>verbose</del> resource management of input and output</li>
+<li><del><code>null</code>.  Boo, hiss.</del></li>
+<li><del>Poorly factored</del><ul>
+<li><del>Termination condition entwined with mutable state.</del></li>
+<li><del>Filtering pushes surviving lines into deeper nesting.</del></li>
+<li><del>Repeats <code>readLine()</code> call to discard header.</del></li>
+</ul>
+</li>
+<li>Blocks threads<ul>
+<li>On geocoder</li>
+<li>On input</li>
+<li>On output</li>
+</ul>
+</li>
+<li>Arbitrary timeout on geocoder.</li>
+<li>Not parallel</li>
+<li><del>Flow of code hard to trace back to requirements.</del></li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              8/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Going reactive with iteratees</h1></header>
+            
+            
+            <section><ul>
+<li>Scalaz has an alternate, mostly forgotten implementation.</li>
+<li>Should be familiar to you Play folks and old faces here.</li>
+<li>In ten words or less: an iterator pulls, an iteratee is pushed onto.</li>
+<li>Let's port our code to play-iteratee.</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              9/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>Iteratee version</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno"> 1</span> <span class="n">using</span><span class="o">(</span><span class="k">new</span> <span class="nc">PrintWriter</span><span class="o">(</span><span class="k">new</span> <span class="nc">FileWriter</span><span class="o">(</span><span class="n">outF</span><span class="o">),</span> <span class="kc">true</span><span class="o">))</span> <span class="o">{</span> <span class="n">out</span> <span class="k">=&gt;</span>
+<span class="lineno"> 2</span>   <span class="k">val</span> <span class="n">f</span> <span class="k">=</span> <span class="nc">Enumerator</span><span class="o">.</span><span class="n">fromFile</span><span class="o">(</span><span class="n">inF</span><span class="o">)</span>
+<span class="lineno"> 3</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">decode</span><span class="o">())</span>
+<span class="lineno"> 4</span>     <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">new</span> <span class="nc">String</span><span class="o">(</span><span class="k">_</span><span class="o">))</span>
+<span class="lineno"> 5</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="nc">Enumeratee</span><span class="o">.</span><span class="n">grouped</span><span class="o">(</span><span class="n">upToNewLine</span><span class="o">))</span>
+<span class="lineno"> 6</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">filter</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">nonEmpty</span><span class="o">))</span>
+<span class="lineno"> 7</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">drop</span><span class="o">(</span><span class="mi">1</span><span class="o">))</span>
+<span class="lineno"> 8</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">filterNot</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="k">_</span><span class="o">.</span><span class="n">contains</span><span class="o">(</span><span class="sc">&#39;&quot;&#39;</span><span class="o">)))</span>
+<span class="lineno"> 9</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">map</span><span class="o">(</span><span class="nc">MockData</span><span class="o">.</span><span class="n">parse</span><span class="o">))</span>
+<span class="lineno">10</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">mapM</span><span class="o">(</span><span class="n">datum</span> <span class="k">=&gt;</span> <span class="nc">Geocoder</span><span class="o">(</span><span class="n">datum</span><span class="o">.</span><span class="n">ipAddress</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">datum</span> <span class="o">-&gt;</span> <span class="k">_</span><span class="o">)))</span>
+<span class="lineno">11</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">collect</span> <span class="o">{</span> <span class="k">case</span> <span class="o">(</span><span class="n">datum</span><span class="o">,</span> <span class="nc">Country</span><span class="o">(</span><span class="n">c</span><span class="o">))</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s">&quot;United States&quot;</span> <span class="k">=&gt;</span> <span class="n">datum</span><span class="o">.</span><span class="n">email</span><span class="o">})</span>
+<span class="lineno">12</span>     <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">take</span><span class="o">(</span><span class="mi">20</span><span class="o">))</span>
+<span class="lineno">13</span>     <span class="o">.</span><span class="n">run</span><span class="o">(</span><span class="nc">Iteratee</span><span class="o">.</span><span class="n">foreach</span><span class="o">(</span><span class="n">out</span><span class="o">.</span><span class="n">println</span><span class="o">))</span>
+<span class="lineno">14</span>   <span class="nc">Await</span><span class="o">.</span><span class="n">result</span><span class="o">(</span><span class="n">f</span><span class="o">,</span> <span class="mf">1.</span><span class="n">minute</span><span class="o">)</span>
+<span class="lineno">15</span> <span class="o">}</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              10/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>A giving and taking of atrocities</h1></header>
+            
+            
+            <section><ul>
+<li>Manual, <del>verbose</del> resource management of <del>input</del> and output</li>
+<li>Blocks threads<ul>
+<li><del>On geocoder</del></li>
+<li>On input</li>
+<li>On output</li>
+</ul>
+</li>
+<li><del>Arbitrary timeout on geocoder.</del></li>
+<li>Not parallel</li>
+<li><ins>Needs an "extras" package from a personal GitHub just to decode a binary stream to text in constant space.</ins></li>
+<li><ins>My attempts to parallelize led to buffer overflows and stack overflows</ins><ul>
+<li>Possible mitigating factor: I'm not very smart.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              11/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>The guest of honor arrives</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno"> 1</span> <span class="n">file</span><span class="o">.</span><span class="n">linesR</span><span class="o">(</span><span class="n">inF</span><span class="o">.</span><span class="n">getName</span><span class="o">)</span>
+<span class="lineno"> 2</span>   <span class="o">.</span><span class="n">drop</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+<span class="lineno"> 3</span>   <span class="o">.</span><span class="n">filter</span><span class="o">(!</span><span class="k">_</span><span class="o">.</span><span class="n">contains</span><span class="o">(</span><span class="sc">&#39;&quot;&#39;</span><span class="o">))</span>
+<span class="lineno"> 4</span>   <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="nc">MockData</span><span class="o">.</span><span class="n">parse</span><span class="o">)</span>
+<span class="lineno"> 5</span>   <span class="o">.</span><span class="n">gatherMap</span><span class="o">(</span><span class="mi">8</span><span class="o">)(</span><span class="n">datum</span> <span class="k">=&gt;</span> <span class="nc">Geocoder</span><span class="o">.</span><span class="n">task</span><span class="o">(</span><span class="n">datum</span><span class="o">.</span><span class="n">ipAddress</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">datum</span> <span class="o">-&gt;</span> <span class="k">_</span><span class="o">))</span>
+<span class="lineno"> 6</span>   <span class="o">.</span><span class="n">collect</span> <span class="o">{</span> <span class="k">case</span> <span class="o">(</span><span class="n">datum</span><span class="o">,</span> <span class="nc">Country</span><span class="o">(</span><span class="n">c</span><span class="o">))</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s">&quot;United States&quot;</span> <span class="k">=&gt;</span> <span class="n">datum</span><span class="o">.</span><span class="n">email</span> <span class="o">}</span>
+<span class="lineno"> 7</span>   <span class="o">.</span><span class="n">take</span><span class="o">(</span><span class="mi">20</span><span class="o">)</span>
+<span class="lineno"> 8</span>   <span class="o">.</span><span class="n">to</span><span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="n">chunkW</span><span class="o">(</span><span class="n">outF</span><span class="o">.</span><span class="n">getName</span><span class="o">).</span><span class="n">contramap</span><span class="o">(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nc">ByteVector</span><span class="o">(</span><span class="n">s</span><span class="o">.</span><span class="n">getBytes</span><span class="o">)))</span>
+<span class="lineno"> 9</span>   <span class="o">.</span><span class="n">run</span>
+<span class="lineno">10</span>   <span class="o">.</span><span class="n">run</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              12/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>The end of the original atrocities</h1></header>
+            
+            
+            <section><ul>
+<li><del>Manual, verbose resource management of input and output</del></li>
+<li><del>Blocks threads</del><ul>
+<li><del>On geocoder</del></li>
+<li><del>On input</del></li>
+<li><del>On output</del></li>
+</ul>
+</li>
+<li><del>Arbitrary timeout on geocoder.</del></li>
+<li><del>Not parallel</del></li>
+<li><del>Needs an "extras" package from a personal GitHub just to decode a binary stream to text in constant space.</del></li>
+<li><del>My attempts to parallelize led to buffer overflows and stack overflows</del></li>
+<li><ins>scalaz-stream isn't in Maven Central</ins><ul>
+<li>http://play.textadventures.co.uk/Play.aspx?id=zv-wer8keey6rnhk4am25q</li>
+</ul>
+</li>
+<li><ins>You're betting your project on 0.6 of something.</ins><ul>
+<li>But I didn't change a line of code from 0.5 to 0.6.</li>
+</ul>
+</li>
+<li><ins>Task, rather than Future, is the first class citizen.</ins><ul>
+<li>In time, you will view this as a selling point.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              13/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>Review: convert a Future to a Task</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno">1</span> <span class="nc">Task</span><span class="o">.</span><span class="n">async</span> <span class="o">{</span> <span class="n">f</span> <span class="k">=&gt;</span>
+<span class="lineno">2</span>   <span class="n">future</span><span class="o">.</span><span class="n">onComplete</span> <span class="o">{</span>
+<span class="lineno">3</span>     <span class="k">case</span> <span class="nc">Success</span><span class="o">(</span><span class="n">a</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">f</span><span class="o">(</span><span class="n">right</span><span class="o">(</span><span class="n">a</span><span class="o">))</span>
+<span class="lineno">4</span>     <span class="k">case</span> <span class="nc">Failure</span><span class="o">(</span><span class="n">t</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">f</span><span class="o">(</span><span class="n">left</span><span class="o">(</span><span class="n">t</span><span class="o">))</span>
+<span class="lineno">5</span>   <span class="o">}</span>
+<span class="lineno">6</span> <span class="o">}</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              14/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>The core types</h1></header>
+            
+            
+            <section><ul>
+<li>A "Scalaz stream" is a <code>scalaz.stream.Process[F[_], O]</code>.</li>
+<li>The <code>F[_]</code> is the context in which an action runs.<ul>
+<li>It can be anything with one type parameter.<ul>
+<li>But it has to be a Monad to run.</li>
+<li>It has to be <code>Catchable</code> to run.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><code>O</code> is the type returned by the action.</li>
+<li>A <code>Process</code> is sequence of <code>F</code> actions returning <code>O</code>.</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              15/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1><code>Process[Task, O]</code></h1></header>
+            
+            
+            <section><ul>
+<li>A source of <code>O</code> is typically a <code>Process[Task, O]</code>.<ul>
+<li><code>O</code>s are requested on demand.</li>
+</ul>
+</li>
+<li>Lots of ways to create them:<ul>
+<li><code>Process.apply</code>, <code>Process.emitAll</code>, etc. to source simple collections.</li>
+<li><code>scalaz.stream.io</code> and <code>scalaz.stream.nio</code> for I/O, blocking and not.</li>
+<li><code>scalaz.stream.tcp</code> for remoting.</li>
+<li><code>scalaz.stream.async</code> can generate a source from a queue, bounded or not.</li>
+<li><code>Process.eval</code> makes a one-element <code>Process</code> from a <code>Task</code>.</li>
+<li><code>Process.repeatEval</code> makes a source from repeatedly invoking a <code>Task</code>.</li>
+</ul>
+</li>
+<li>This is like an <code>Enumerator[O]</code>.</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              16/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1><code>Process1[I, O]</code></h1></header>
+            
+            
+            <section><ul>
+<li>Alias for <code>Process[Env[I,Any]#Is, O]</code><ul>
+<li>That <code>Is</code> is type system voodoo to ensure that an <code>I</code> is requested.</li>
+<li>It translates inputs to zero-to-many outputs.</li>
+</ul>
+</li>
+<li><code>Process[F, A].pipe(Process[A, B]) =&gt;</code>Process[F, B]`</li>
+<li><code>filter</code>, <code>drop</code>, <code>take</code> are all simple examples.</li>
+<li>This is like an <code>Enumeratee[I, O]</code>.<ul>
+<li>The common ones come with suffix notation to preserve the feel of a collection.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              17/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1><code>Sink[Task, I]</code></h1></header>
+            
+            
+            <section><ul>
+<li>Alias for <code>Channel[Task, I, Unit]</code><ul>
+<li>Alias for <code>Process[Task, I =&gt; Task[F[Unit]]</code></li>
+<li>It's a source of functions to be run on each input</li>
+</ul>
+</li>
+<li><code>Process[F, A].to(Sink[Task, A]) =&gt; Process[Task, Unit]</code></li>
+<li><code>scalaz.stream.io</code> and <code>scalaz.stream.nio</code> for I/O, blocking and not.</li>
+<li>This is like an <code>Iteratee[O, Unit]</code><ul>
+<li>But more controlled, because Tasks don't run until you tell them.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              18/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Running</h1></header>
+            
+            
+            <section><ul>
+<li><code>def run: F[Unit]</code>: Run for a side effect.</li>
+<li><code>def runLast: F[Option[A]]</code>: Discard all values but the last.<ul>
+<li><code>def runLastOr(a: A): F[A]</code>: In case the process emits nothing</li>
+</ul>
+</li>
+<li><code>def runLog: F[Vector[A]]</code>: Get all the intermediate results</li>
+<li><code>def runFoldMap(f: A =&gt; B): F[B]</code>: Map the outputs to <code>B</code>, and add them up.<ul>
+<li><code>B</code> must have a monoid instance.</li>
+<li>All the others are built on this.</li>
+</ul>
+</li>
+<li>If <code>F</code> is a Task, nothing happens until you <code>run</code> the result of your <code>run</code>.<ul>
+<li>Banish the side effects to the outermost edge of your program.</li>
+<li>Easy to compose <code>Process</code> results into larger execution flows.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              19/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Jawn</h1></header>
+            
+            
+            <section><ul>
+<li>Jawn is a fast JSON parser, supporting a variety of JSON AST:<ul>
+<li>Argonaut</li>
+<li>json4s</li>
+<li>play-json</li>
+<li>rojoma</li>
+<li>spray-json</li>
+</ul>
+</li>
+<li>It has an asynchronous mode, to return results from partial input</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              20/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Jawn-Streamz</h1></header>
+            
+            
+            <section><ul>
+<li>I wrote a simple scalaz-stream adapter<ul>
+<li>https://github.com/rossabaker/jawn-streamz</li>
+<li>Is backbone of http4s' JSON support</li>
+<li>Coming eventually: serialization.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              21/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide has_code">
+          <div class="inner">
+            
+            <header><h1>Jawn-Streamz example</h1></header>
+            
+            
+            <section><div class="highlight"><pre><span class="lineno">1</span> <span class="nc">Process</span><span class="o">.</span><span class="n">awakeEvery</span><span class="o">(</span><span class="mf">1.</span><span class="n">second</span><span class="o">)</span> <span class="c1">// every 1 second</span>
+<span class="lineno">2</span>   <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="k">=&gt;</span> <span class="mi">64</span><span class="o">)</span> <span class="c1">// ask for 64 bytes</span>
+<span class="lineno">3</span>   <span class="o">.</span><span class="n">through</span><span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="n">chunkR</span><span class="o">(</span><span class="s">&quot;mockaroo.json&quot;</span><span class="o">))</span> <span class="c1">// from mockaroo.json</span>
+<span class="lineno">4</span>   <span class="o">.</span><span class="n">unwrapJsonArray</span><span class="o">[</span><span class="kt">JValue</span><span class="o">]</span> <span class="c1">// emit one JSON array element at a time</span>
+<span class="lineno">5</span>   <span class="o">.</span><span class="n">collect</span> <span class="o">{</span> <span class="k">case</span> <span class="n">jObj</span><span class="k">:</span> <span class="kt">JObject</span> <span class="o">=&gt;</span> <span class="n">jObj</span><span class="o">.</span><span class="n">get</span><span class="o">(</span><span class="s">&quot;email&quot;</span><span class="o">)</span> <span class="o">}</span> <span class="c1">// get the e-mail</span>
+<span class="lineno">6</span>   <span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">toString</span><span class="o">)</span> <span class="c1">// convert to string</span>
+<span class="lineno">7</span>   <span class="o">.</span><span class="n">to</span><span class="o">(</span><span class="n">scalaz</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">stdOutLines</span><span class="o">)</span> <span class="c1">// write to stdout</span>
+<span class="lineno">8</span>   <span class="o">.</span><span class="n">run</span> <span class="c1">// convert to a task</span>
+<span class="lineno">9</span>   <span class="o">.</span><span class="n">run</span> <span class="c1">// and execute said task</span>
+</pre></div>
+</section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              22/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>In production</h1></header>
+            
+            
+            <section><ul>
+<li>We process hundreds of millions of messages a day through scalaz-stream</li>
+<li>Great fit for consuming from and producting to Kafka topics.<ul>
+<li>Manages our connections, which is more complicated than try-finally-close.</li>
+<li>Very robust in bursty load</li>
+<li>Open source wrappers on the way.</li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              23/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+      <!-- slide source: presentation.md -->
+      <div class="slide-wrapper">
+        <div class="slide">
+          <div class="inner">
+            
+            <header><h1>Ross A. Baker</h1></header>
+            
+            
+            <section><ul>
+<li><a href="http://twitter.com/rossabaker">@rossabaker</a></li>
+<li>Co-organizer, <a href="http://github.com/indyscala/">IndyScala</a></li>
+<li>Principal Cloud Engineer, <a href="http://www.crowdstrike.com/">CrowdStrike</a><ul>
+<li>We're <a href="http://www.crowdstrike.com/about-us/careers/">hiring</a></li>
+</ul>
+</li>
+</ul></section>
+            
+          </div>
+          <div class="presenter_notes">
+            <header><h1>Presenter Notes</h1></header>
+            <section>
+            
+            </section>
+          </div>
+          <footer>
+            
+            <aside class="source">
+              Source: <a href="presentation.md">presentation.md</a>
+            </aside>
+            
+            <aside class="page_number">
+              24/24
+            </aside>
+          </footer>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <div id="toc" class="sidebar hidden">
+    <h2>Table of Contents</h2>
+    <table>
+      <caption>Table of Contents</caption>
+      
+      <tr id="toc-row-1">
+        <th><a href="#slide1">scalaz-stream</a></th>
+        <td><a href="#slide1">1</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-2">
+        <th><a href="#slide2">This is part 2 of 3.</a></th>
+        <td><a href="#slide2">2</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-3">
+        <th><a href="#slide3">Not in scope tonight:</a></th>
+        <td><a href="#slide3">3</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-4">
+        <th><a href="#slide4">Requirements</a></th>
+        <td><a href="#slide4">4</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-5">
+        <th><a href="#slide5">Attempt #1: Java in Scala</a></th>
+        <td><a href="#slide5">5</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-6">
+        <th><a href="#slide6">Documenting the atrocities</a></th>
+        <td><a href="#slide6">6</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-7">
+        <th><a href="#slide7">Attempt #2: More conventional Scala</a></th>
+        <td><a href="#slide7">7</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-8">
+        <th><a href="#slide8">Reassessing the atrocities</a></th>
+        <td><a href="#slide8">8</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-9">
+        <th><a href="#slide9">Going reactive with iteratees</a></th>
+        <td><a href="#slide9">9</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-10">
+        <th><a href="#slide10">Iteratee version</a></th>
+        <td><a href="#slide10">10</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-11">
+        <th><a href="#slide11">A giving and taking of atrocities</a></th>
+        <td><a href="#slide11">11</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-12">
+        <th><a href="#slide12">The guest of honor arrives</a></th>
+        <td><a href="#slide12">12</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-13">
+        <th><a href="#slide13">The end of the original atrocities</a></th>
+        <td><a href="#slide13">13</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-14">
+        <th><a href="#slide14">Review: convert a Future to a Task</a></th>
+        <td><a href="#slide14">14</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-15">
+        <th><a href="#slide15">The core types</a></th>
+        <td><a href="#slide15">15</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-16">
+        <th><a href="#slide16"><code>Process[Task, O]</code></a></th>
+        <td><a href="#slide16">16</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-17">
+        <th><a href="#slide17"><code>Process1[I, O]</code></a></th>
+        <td><a href="#slide17">17</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-18">
+        <th><a href="#slide18"><code>Sink[Task, I]</code></a></th>
+        <td><a href="#slide18">18</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-19">
+        <th><a href="#slide19">Running</a></th>
+        <td><a href="#slide19">19</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-20">
+        <th><a href="#slide20">Jawn</a></th>
+        <td><a href="#slide20">20</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-21">
+        <th><a href="#slide21">Jawn-Streamz</a></th>
+        <td><a href="#slide21">21</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-22">
+        <th><a href="#slide22">Jawn-Streamz example</a></th>
+        <td><a href="#slide22">22</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-23">
+        <th><a href="#slide23">In production</a></th>
+        <td><a href="#slide23">23</a></td>
+      </tr>
+      
+      
+      <tr id="toc-row-24">
+        <th><a href="#slide24">Ross A. Baker</a></th>
+        <td><a href="#slide24">24</a></td>
+      </tr>
+      
+      
+    </table>
+  </div>
+  
+  <div id="help" class="sidebar hidden">
+    <h2>Help</h2>
+    <table>
+      <caption>Help</caption>
+      <tr>
+        <th>Table of Contents</th>
+        <td>t</td>
+      </tr>
+      <tr>
+        <th>Exposé</th>
+        <td>ESC</td>
+      </tr>
+      <tr>
+        <th>Full screen slides</th>
+        <td>e</td>
+      </tr>
+      <tr>
+        <th>Presenter View</th>
+        <td>p</td>
+      </tr>
+      <tr>
+        <th>Source Files</th>
+        <td>s</td>
+      </tr>
+      <tr>
+        <th>Slide Numbers</th>
+        <td>n</td>
+      </tr>
+      <tr>
+        <th>Toggle screen blanking</th>
+        <td>b</td>
+      </tr>
+      <tr>
+        <th>Show/hide slide context</th>
+        <td>c</td>
+      </tr>
+      <tr>
+        <th>Notes</th>
+        <td>2</td>
+      </tr>
+      <tr>
+        <th>Help</th>
+        <td>h</td>
+      </tr>
+    </table>
+  </div>
+  <script>main()</script>
+</body>
+</html>
